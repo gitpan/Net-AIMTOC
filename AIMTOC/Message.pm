@@ -274,6 +274,8 @@ It should never be necessary to create this object.
 
 =head2 OBJECT METHODS
 
+=over 4
+
 =item getType ()
 
 Returns the type of the message. The type can be one of the following (see the Toc PROTOCOL document for a full explanation):

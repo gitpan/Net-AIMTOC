@@ -1,5 +1,6 @@
 AIMTOC.pm
 AIMTOC/Message.pm
+AIMTOC/Config.pm
 Changes
 MANIFEST
 Makefile.PL

@@ -1,5 +1,8 @@
 Revision history for Net::AIMTOC module.
 
+0.94    2002.05.22
+        - Add config module
+
 0.93    2002.05.22
         - updates to documentation
 
