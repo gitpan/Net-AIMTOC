@@ -1,6 +1,6 @@
 package Net::AIMTOC;
 
-$VERSION = '0.9';
+$VERSION = '0.91';
 
 use strict;
 
@@ -81,7 +81,7 @@ sub recv_from_aol {
 
 =pod
 
-=head1 TITLE
+=head1 NAME
 
 Net::AIMTOC - Perl implementation of the AIM TOC procotol
 
