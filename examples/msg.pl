@@ -1,5 +1,8 @@
 #!/usr/bin/perl -w
 
+# This script illustrates the API of the Message object - useful
+# if you are wanting to mak extensive use Net::AIMTOC.
+
 use strict;
 
 use Error qw( :try );

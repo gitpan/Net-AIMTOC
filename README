@@ -1,4 +1,4 @@
-Net/AIMTOC version 0.91
+Net/AIMTOC version 0.92
 =======================
 
 Perl implementation of the AIM TOC protocol.
@@ -28,6 +28,6 @@ Alistair Francis <cpan@alizta.com>
 COPYRIGHT AND LICENCE
 
 This is free software; you can redistribute it and/or modify it under
-the same terms as Perl itse
+the same terms as Perl itself.
 
 

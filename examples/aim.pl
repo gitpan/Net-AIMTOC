@@ -1,5 +1,11 @@
 #!/usr/bin/perl -w
 
+# This is an example of a working aim client, however, the
+# client lacks many of the features which most users will
+# be interested in (such as buddy list, etc).
+
+# Usage: ./aim.pl <screen name> <password>
+
 use strict;
 
 use Error qw( :try );

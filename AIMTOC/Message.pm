@@ -3,7 +3,6 @@ package Net::AIMTOC::Message;
 use strict;
 
 use Net::AIMTOC::Config;
-use Net::AIMTOC::Utils;
 
 sub new {
 	my $class = shift;
@@ -72,12 +71,12 @@ sub new {
 	};
 	bless $self, $class;
 
-	$self->removeHtmlTags;
+	$self->_removeHtmlTags;
 
 	return( $self );
 };
 
-sub removeHtmlTags {
+sub _removeHtmlTags {
 	my $self = shift;
 
 	if( Net::AIMTOC::Config::REMOVE_HTML_TAGS ) {
@@ -87,19 +86,6 @@ sub removeHtmlTags {
 	return;
 }
 
-sub getMsg {
-	my $self = shift;
-
-	my $msg = '';
-
-	if( $self->{_autoResponse} eq 'T' ) {
-		$msg .= 'Autoresponse ';
-	};
-
-	$msg .= $self->{_sender} .': '. $self->{_text};
-
-	return( $msg );
-};
 
 sub isAutoResponse {
 	my $self = shift;
@@ -112,8 +98,6 @@ sub isAutoResponse {
 };
 
 sub getSender { return( $_[0]->{_sender} ) };
-sub getText { return( $_[0]->{_text} ) };
-sub getAutoResponse { return( $_[0]->{_autoResponse} ) };
 
 
 
@@ -205,8 +189,6 @@ sub getSignonTime { return( $_[0]->{_signonTime} ) };
 sub getIdleTime { return( $_[0]->{_idleTime} ) };
 sub getUserClass { return( $_[0]->{_userClass} ) };
 
-sub getMsg { return( $_[0]->{_rawData} ) };
-
 
 
 package Net::AIMTOC::Message::GENERIC;
@@ -253,9 +235,116 @@ sub new {
 	return( $self );
 };
 
-sub getType { return( $_[0]->{_type} ) };
-sub getMsg { return( $_[0]->{_text} ) };
-sub getRawData { return( $_[0]->{_rawData} ) };
 
 
 1;
+
+
+=pod
+
+=head1 TITLE
+
+Net::AIMTOC::Message - AIM Message object
+    
+=head1 DESCRIPTION
+
+The C<Net::AIMTOC::Message> object is returned by the C<Net::AIMTOC::recv_from_aol> method. It provides a simple means of interrogating a received message to find out if it is an incoming instant message, error message, etc.
+
+It should never be necessary to create this object.
+
+=head1 SYNOPSIS
+
+  use Error qw( :try );
+  use Net::AIMTOC;
+
+  try {
+    my $aim = Net::AIMTOC->new;
+    $aim->sign_on( $screenname, $password );
+
+    ...
+
+    my $msgObj = $aim->recv_from_aol;
+    if( $msgObj->getType eq 'IM_IN' ) {
+      print $msgObj->getMsg, "\n";
+
+    ...
+  
+
+=head1 CLASS INTERFACE
+
+=head2 OBJECT METHODS
+
+=item getType ()
+
+Returns the type of the message. The type can be one of the following (see the Toc PROTOCOL document for a full explanation):
+
+    -IM_IN
+    -ERROR
+    -UPDATE_BUDDY
+    -NICK
+
+=item getMsg ()
+
+Returns the content of the message (only available to IM_IN and ERROR messages).
+
+=item getRawData ()
+
+Returns the raw message as it was received.
+
+=item getTocType ()
+
+Returns the type of TOC of the message. The type returned is an integer which can be one of the following:
+
+    -1 (SIGNON) 
+    -2 (DATA)
+    -5 (KEEPALIVE)
+
+=item getSender ()
+
+Returns sender of the instant message (only available to IM_IN messages).
+
+=item isAutoResponse ()
+
+Returns true if the message was an auto-generated response (only available to IM_IN messages).
+
+=item getBuddy ()
+
+Returns the buddy name (only available to UPDATE_BUDDY messages).
+
+=item getOnlineStatus ()
+
+Returns the online status of the buddy (only available to UPDATE_BUDDY messages).
+
+=item getEvilAmount ()
+
+Returns the evil amount of the buddy (only available to UPDATE_BUDDY messages).
+
+=item getSignonTime ()
+
+Returns the time (in epoch) at which the buddy signed on (only available to UPDATE_BUDDY messages).
+
+=item getIdleTime ()
+
+Returns the idle time (in minutes) of the buddy (only available to UPDATE_BUDDY messages).
+
+=item getUserClass ()
+
+Returns the user class of the buddy (only available to UPDATE_BUDDY messages).
+
+=back
+
+=head1 KNOWN BUGS
+
+None, but that does not mean there are not any.
+
+=head1 SEE ALSO
+
+C<Net::AIMTOC>
+
+=head1 AUTHOR
+
+Alistair Francis, <cpan@alizta.com>
+
+=cut
+
+

@@ -1,11 +1,10 @@
 package Net::AIMTOC;
 
-$VERSION = '0.91';
+$VERSION = '0.92';
 
 use strict;
 
-use Net::AIMTOC::Connection;
-use Net::AIMTOC::Error;
+use Net::AIMTOC::Config;
 
 sub new {
 	my $class = shift;
@@ -20,8 +19,9 @@ sub new {
 
 sub connect {
 	my $self = shift;
+	my $args = shift;
 
-	my $conn = Net::AIMTOC::Connection->new;
+	my $conn = Net::AIMTOC::Connection->new( $args );
 
 	$self->{_conn} = $conn;
 
@@ -42,22 +42,6 @@ sub sign_on {
 	return( $ret );
 };
 
-sub disconnect {
-	my $self = shift;
-
-	$self->{_conn}->disconnect;
-
-	return( 1 );
-};
-
-sub send_to_aol {
-	my $self = shift;
-	my $msg = shift;
-
-	my $ret = $self->{_conn}->sendToAOL( $msg );
-
-	return( $ret );
-};
 
 sub send_im_to_aol {
 	my $self = shift;
@@ -69,6 +53,17 @@ sub send_im_to_aol {
 	return( $ret );
 };
 
+
+sub send_to_aol {
+	my $self = shift;
+	my $msg = shift;
+
+	my $ret = $self->{_conn}->sendToAOL( $msg );
+
+	return( $ret );
+};
+
+
 sub recv_from_aol {
 	my $self = shift;
 
@@ -77,26 +72,408 @@ sub recv_from_aol {
 	return( $msgObj );
 };
 
-1;
+
+sub disconnect {
+	my $self = shift;
+
+	$self->{_conn}->disconnect;
+
+	return( 1 );
+};
+
 
 =pod
 
-=head1 NAME
+=head1 TITLE
 
-Net::AIMTOC - Perl implementation of the AIM TOC procotol
-
+Net::AIMTOC - Perl implementation of the AIM TOC protocol
     
 =head1 DESCRIPTION
 
-This is a work in progress, updates to documentation will follow.
+The C<Net::AIMTOC> module implements in AIM TOC protocol in such a way which make it simple for using when writing bots or AIM clients in Perl.
+
+All of the code regarding the connection is abstracted in order to simplify the AIM connection down to merely sending and receiving instant messages and toc commands.
+
+=head1 SYNOPSIS
+
+  use Error qw( :try );
+  use Net::AIMTOC;
+
+  try {
+    my $aim = Net::AIMTOC->new;
+    $aim->connect;
+    $aim->sign_on( $screenname, $password );
+
+    my $msgObj = $aim->recv_from_aol;
+    print $msgObj->getMsg, "\n";
+    $aim->send_im_to_aol( $buddy, $msg );
+
+    $aim->disconnect;
+    exit( 0 );
+
+  }
+  catch Net::AIMTOC::Error with {
+    my $err = shift;
+    print $err->stringify, "\n";
+
+  };
+
+
+=head1 CLASS INTERFACE
+
+=head2 CONSTRUCTORS
+
+A C<Net::AIMTOC> object is created by calling the new constructor without arguments. A reference to the newly created object is returned, however, no connection to AIM has yet been made. One first is required to called C<connect> and C<sign_on> before attempting to send/receive instant messages.
+
+=over 4
+
+=item new ()
+
+Returns C<Net::AIMTOC> object but does not create a connection or sign on to the AIM service.
+
+=back
+
+=head2 OBJECT METHODS
+
+=over 4
+
+=item connect ( ARGS )
+
+The connect method can be called without arguments to connect to the AIM service using the default AIM servers.
+
+Alternatively, a hash containing any of the following keys can be passed in to connect to another service using the TOC protocol:
+
+  -tocServer
+  -tocPort
+  -authServer
+  -authPort
+
+=item sign_on ( ARGS )
+
+C<sign_on> is called to sign on to the AIM service. The arguments to be passed in are the screen name and password to be used to sign on to the service. 
+
+=item send_im_to_aol ( ARGS )
+
+Sends an instant message. The first argument should be the name of the receipient buddy and the second argument is the message which you are sending.
+
+=item send_to_aol ( ARGS )
+
+Sends whatever string is passed in on to the AIM service. Useful for sending toc commands.
+
+=item recv_from_aol ()
+
+Receives any data sent from the AIM service. This includes all TOC protocol messages (including instant messages), however, PAUSE And SIGN_ON messages are handled internally.
+
+This method returns a C<Net::AIMTOC::Messages> object. See the documentation for this object is to be used.
+
+=item disconnect ()
+
+Disconnects from the AIM service.
+
+=back
 
 =head1 KNOWN BUGS
 
 None, but that does not mean there are not any.
+
+=head1 SEE ALSO
+
+C<Net::AIMTOC::Messages>
 
 =head1 AUTHOR
 
 Alistair Francis, <cpan@alizta.com>
 
 =cut
+
+
+# Net::AIMTOC::Connection package.
+# Nothing to see here, please move along
+
+package Net::AIMTOC::Connection;
+
+use strict;
+
+use Net::AIMTOC::Message;
+
+use IO::Socket::INET;
+
+sub new {
+	my $class = shift;
+	my $args = shift;
+
+	my $self = {
+		_sock	=> undef,
+		_screenName	=> undef,
+		_tocServer	=> $args->{tocServer} || Net::AIMTOC::Config::TOC_SERVER,
+		_tocPort	=> $args->{tocPort} || Net::AIMTOC::Config::TOC_PORT,
+		_authServer	=> $args->{authServer} || Net::AIMTOC::Config::AUTH_SERVER,
+		_authPort	=> $args->{authPort} || Net::AIMTOC::Config::AUTH_PORT,
+		_outseq	=> int(rand(100000)),
+	};
+
+	my $sock = IO::Socket::INET->new(
+		PeerAddr	=> $self->{_tocServer},
+		PeerPort	=> $self->{_tocPort},
+		Type		=> SOCK_STREAM,
+		Proto		=> 'tcp'
+	);
+
+	if( !defined($sock) ) {
+		my $err_msg = 'Unable to connect to '. $self->{_tocServer} .' on port '. $self->{_tocPort};
+		throw Net::AIMTOC::Error( -text => $err_msg );
+	};
+
+	$self->{_sock} = $sock;
+	bless $self, $class;
+
+	return( $self );
+};
+
+
+sub send_signon {
+	my $self = shift;
+	my $screen_name = shift;
+	my $password = shift;
+
+	$self->{_screenName} = $screen_name;
+
+	Net::AIMTOC::Utils::printDebug( "send_signon: $screen_name" );
+
+	my $data_out = "FLAPON\r\n\r\n";
+	$self->{_sock}->send( $data_out );
+
+	my( $msgObj ) = $self->recvFromAOL;
+	Net::AIMTOC::Utils::printDebug( $msgObj->getRawData );
+
+	my $signon_data = pack "Nnna".length($screen_name), 1, 1, length($screen_name) , $screen_name;
+
+	my $msg = pack "aCnn", '*', 1, $self->{_outseq}, length($signon_data);
+	$msg .= $signon_data;
+
+	my $ret = $self->{_sock}->send( $msg, 0 );
+
+	if( !defined($ret) ) {
+		throw Net::AIMTOC::Error( -text => "syswrite: $!" );
+	};
+
+	my $login_string = $self->_getLoginString( $screen_name, $password );
+
+	$ret = $self->sendToAOL( $login_string );
+
+	# receive SIGNON data from AOL
+	$msgObj = $self->recvFromAOL;
+	Net::AIMTOC::Utils::printDebug( $msgObj->getRawData );
+
+	# Sending of sign on data is performed by 'recvFromAOL' to ensure
+	# correct handling of PAUSE messages
+
+	return( 1 );
+};
+
+
+sub _sendSignOnData {
+	my $self = shift;
+
+	# These lines are required in order to sign on
+	my $ret = $self->sendToAOL( "toc_add_buddy $self->{_screenName}" );
+	$ret = $self->sendToAOL( 'toc_set_config {m 1}' );
+
+	# We're done with the signon process
+	$ret = $self->sendToAOL( 'toc_init_done' );
+
+	# remove the buddy we were required to add earlier
+	$ret = $self->sendToAOL( "toc_remove_buddy $self->{_screenName}" );
+
+	return;
+};
+
+sub _getLoginString {
+	my $self = shift;
+	my $screen_name = shift;
+	my $password = shift;
+
+	my $login_string = 'toc_signon '. $self->{_authServer} .' '. $self->{_authPort} .' '. $screen_name .' '. Net::AIMTOC::Utils::encodePass( $password ) .' english '. Net::AIMTOC::Utils::encode( Net::AIMTOC::Config::AGENT );
+
+	return( $login_string );
+};
+
+
+sub recvFromAOL {
+	my $self = shift;
+
+	my $buffer;
+
+	if( !defined($self->{_sock}) ) {
+		throw Net::AIMTOC::Error( -text => 'We are not connected' );
+	};
+
+	my $ret = $self->{_sock}->recv( $buffer, 6 );
+	if( !defined($ret) ) {
+		throw Net::AIMTOC::Error( -text => "sysread: $!" );
+	};
+	Net::AIMTOC::Utils::printDebug( "RAW IN (header): '$buffer'" );
+
+	my ($marker, $type, $in_seq, $len) = unpack "aCnn", $buffer;
+	Net::AIMTOC::Utils::printDebug( "IN (header): '$marker', '$type', '$in_seq', '$len'" );
+
+	$ret = $self->{_sock}->recv( $buffer, $len );
+	if( !defined($ret) ) {
+		throw Net::AIMTOC::Error( -text => "sysread: $!" );
+	};
+	Net::AIMTOC::Utils::printDebug( "RAW IN (data): '$buffer'" );
+
+	my $data = unpack( 'a*', $buffer );
+	Net::AIMTOC::Utils::printDebug( "IN (data): '$data'" );
+
+	my $msgObj = Net::AIMTOC::Message->new( $type, $data );
+
+	if( $msgObj->getType eq 'SIGN_ON' ) {
+		$self->_sendSignOnData;
+	};
+
+	return( $msgObj );
+};
+
+
+sub sendToAOL {
+	my $self = shift;
+	my $msg = shift;
+
+	if( !defined($self->{_sock}) ) {
+		throw Net::AIMTOC::Error( -text => 'We are not connected' );
+	};
+
+	$msg .= "\0";
+
+	Net::AIMTOC::Utils::printDebug( "RAW OUT: $msg" );
+	my $data = pack "aCnna*", '*', 2, ++$self->{_outseq}, length($msg), $msg;
+	Net::AIMTOC::Utils::printDebug( "OUT: $data" );
+
+	my $ret = $self->{_sock}->send( $data, 0 );
+
+	if( !defined($ret) ) {
+		throw Net::AIMTOC::Error( -text => "syswrite: $!" );
+	};
+
+	return( $ret );
+};
+
+
+sub sendIMToAOL {
+	my $self = shift;
+	my $user = shift;
+	my $msg = shift;
+
+	if( !defined($user) || !defined($msg) ) {
+		Net::AIMTOC::Utils::printDebug( "User or msg not defined\n" );
+		return;
+	};
+
+	$user = Net::AIMTOC::Utils::normalize( $user );
+	$msg = Net::AIMTOC::Utils::encode( $msg );
+
+	$msg = 'toc_send_im '. $user .' '. $msg;
+
+	my $ret = $self->sendToAOL( $msg );
+
+	return( $ret );
+};
+
+
+sub disconnect {
+	my $self = shift;
+
+	$self->{_sock}->close;
+
+	return;
+};
+
+
+# Net::AIMTOC::Error* packages.
+# Nothing to see here, please move along
+
+package Net::AIMTOC::Error;
+
+use strict;
+
+@Net::AIMTOC::Error::ISA = qw( Error );
+
+
+package Net::AIMTOC::Error::Message;
+
+use strict;
+
+@Net::AIMTOC::Error::Message::ISA = qw( Net::AIMTOC::Error );
+
+
+
+# Net::AIMTOC::Utils package.
+# Nothing to see here, please move along
+
+package Net::AIMTOC::Utils;
+
+use strict;
+
+sub printDebug {
+	my $msg = shift;
+
+	if( Net::AIMTOC::Config::DEBUG ) {
+		print STDERR $msg, "\n";
+	};
+
+	return;
+};
+
+sub encodePass {
+	my $password = shift;
+
+	my @table = unpack "c*" , 'Tic/Toc';
+	my @pass = unpack "c*", $password;
+
+	my $encpass = '0x';
+	foreach my $c (0 .. $#pass) {
+		$encpass.= sprintf "%02x", $pass[$c] ^ $table[ ( $c % 7) ];
+	};
+
+	return( $encpass );
+};
+
+sub encode {
+	my $str = shift;
+
+	$str =~ s/([\\\}\{\(\)\[\]\$\"])/\\$1/g;
+	return( "\"$str\"" );
+};
+
+sub normalize {
+	my $data = shift;
+    
+	$data =~ s/[^A-Za-z0-9]//g;
+	$data =~ tr/A-Z/a-z/;
+
+	return( $data );
+};
+
+
+sub removeHtmlTags {
+	my $string = shift;
+	my $replacement = shift || '';
+
+	$string =~ s/<.*?>/$replacement/g;
+
+	return( $string );
+};
+
+
+sub getCurrentTime {
+	my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time);
+
+	if( $sec < 10 ) { $sec = '0'.$sec };
+	if( $min < 10 ) { $min = '0'.$min };
+
+	return( "$hour:$min:$sec" );
+};
+
+1;
 
