@@ -242,7 +242,7 @@ sub new {
 
 =pod
 
-=head1 TITLE
+=head1 NAME
 
 Net::AIMTOC::Message - AIM Message object
     

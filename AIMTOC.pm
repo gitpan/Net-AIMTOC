@@ -1,6 +1,6 @@
 package Net::AIMTOC;
 
-$VERSION = '0.92';
+$VERSION = '0.93';
 
 use strict;
 
@@ -84,7 +84,7 @@ sub disconnect {
 
 =pod
 
-=head1 TITLE
+=head1 NAME
 
 Net::AIMTOC - Perl implementation of the AIM TOC protocol
     
