@@ -1,0 +1,12 @@
+AIMTOC.pm
+AIMTOC/Config.pm
+AIMTOC/Connection.pm
+AIMTOC/Error.pm
+AIMTOC/Message.pm
+AIMTOC/Utils.pm
+Changes
+MANIFEST
+Makefile.PL
+README
+examples/aim.pl
+examples/msg.pl

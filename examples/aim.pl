@@ -1,0 +1,101 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+use Error qw( :try );
+use Net::AIMTOC::Error;
+
+use Net::AIMTOC;
+use Net::AIMTOC::Message;
+
+use IO::Socket;
+
+my $screenname = $ARGV[0];
+my $password = $ARGV[1];
+
+my $aim;
+
+try { 
+	$aim = Net::AIMTOC->new;
+
+	$aim->connect;
+	print "Connected\n";
+
+	$aim->sign_on( $screenname, $password );
+	print "Signed on\n";
+}
+catch Net::AIMTOC::Error with {
+	my $err = shift;
+	print $err->text, "\n";
+	exit;
+};
+
+use IO::Select;
+my $read_set = new IO::Select(); # create handle set for reading
+$read_set->add( \*STDIN );
+$read_set->add( $aim->{_conn}->{_sock} );
+
+my $timeout = 2;
+
+my $buddy = $screenname;
+
+try {
+	while (1) {
+		my @ready = $read_set->can_read( $timeout );
+
+		foreach my $rh( @ready ) {
+
+			if( $rh == $aim->{_conn}->{_sock} ) {
+
+				try {
+					my( $msgObj ) = $aim->recv_from_aol;
+					my $msg = $msgObj->getMsg;
+					print $msg, "\n";
+
+				}
+				catch Net::AIMTOC::Error with {
+					my $err = shift;
+					print $err->stringify, "\n";
+				};
+			}
+			else {
+				my $line = <$rh>;
+				chomp( $line );
+	
+				# Sending an IM
+				if( $line =~ /^\/msg (\w*) (.*)$/ ) {
+					$buddy = $1;
+					$aim->send_im_to_aol( $1, $2 );
+				}
+				# Sending a toc command
+				elsif( $line =~ /^\/command (toc_.*)$/ ) {
+					$aim->send_to_aol( $1 );
+				}
+				# quit
+				elsif( $line =~ /^\/quit/ ) {
+					print "Quitting\n";
+					$aim->disconnect;
+					exit( 0 );
+				}
+				# Do nothing
+				elsif( $line eq '' ) {
+					print '';
+				}
+				# Keep chatting...
+				elsif( $line =~ /^(.*)$/ ) {
+					$aim->send_im_to_aol( $buddy, $1 );
+				}
+				else {
+					print "Unrecognised command: $line\n";
+				};
+			};
+	    };
+	};
+}
+catch Net::AIMTOC::Error with {
+	my $err = shift;
+	print $err->stringify, "\n";
+	exit( 1 );
+};
+
+
