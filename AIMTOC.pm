@@ -1,6 +1,6 @@
 package Net::AIMTOC;
 
-$VERSION = '0.94';
+$VERSION = '0.95';
 
 use strict;
 
@@ -182,7 +182,7 @@ C<Net::AIMTOC::Messages>
 
 =head1 AUTHOR
 
-Alistair Francis, <cpan@alizta.com>
+Alistair Francis, http://search.cpan.org/~friffin/
 
 =cut
 
